@@ -1,0 +1,86 @@
+<?xml version="1.0" encoding="utf-8"?>
+<s:WindowedApplication xmlns:fx="http://ns.adobe.com/mxml/2009"
+					   xmlns:s="library://ns.adobe.com/flex/spark"
+					   xmlns:mx="library://ns.adobe.com/flex/mx"
+					   xmlns:maps="com.google.maps.*"
+					   width="800" height="500" applicationComplete="init()">
+	<fx:Declarations>
+		<!-- 非ビジュアルエレメント (サービス、値オブジェクトなど) をここに配置 -->
+	</fx:Declarations>
+	<fx:Script>
+		<![CDATA[
+			import com.google.maps.LatLng;
+			import com.google.maps.Map;
+			import com.google.maps.MapEvent;
+			import com.google.maps.MapOptions;
+			import com.google.maps.MapType;
+			import com.google.maps.controls.*;
+			import com.google.maps.overlays.Marker;
+			
+			import mx.collections.ArrayList;
+			
+			import wsn.module.MTS420;
+			import wsn.utils.*;
+			import wsn.xmesh.*;
+			[Bindable]
+			public var resultArrayList:ArrayList = new ArrayList();
+			private function init():void
+			{
+				var socket:XMeshSocket = new XMeshSocket("127.0.0.1", 9000, "mts420-pkt.xml");
+				socket.addEventListener(IOErrorEvent.IO_ERROR, ioErrorHandler);
+				socket.addEventListener(XMeshPacketEvent.PACKET_IN, dataEventHandler);
+				//adb = new ADB("MTS420Demo",{clear:true});
+			}
+			private function dataEventHandler(e:XMeshPacketEvent):void
+			{
+				var packet:XMeshPacket = e.data;
+				trace(packet);
+				var date:Date = MTS420.fix(packet.getItem("hours"), packet.getItem("minutes"), packet.getItem("seconds"));
+				var o:Object = new Object();
+				o.time = date.getHours() + ":" + date.getMinutes() + " " + date.getSeconds();
+				o.nodeid = MTS420.nodeid(packet.getItem("nodeid")).toString();
+				o.geo = MTS420.latitude(packet.getItem("latitudedegree"), packet.getItem("latitudeminutes")) + "," + MTS420.latitude(packet.getItem("longitudedegree"), packet.getItem("longitudeminute"));
+				o.battery = MathUtil.format(MTS420.battery(packet.getItem("voltage")) / 1000, 2);
+				o.temperature = MathUtil.format(MTS420.temperature(packet.getItem("humtemp")),2);
+				o.accel = Math.floor(MTS420.accelX(packet.getItem("accel_x"))) + "," + Math.floor(MTS420.accelY(packet.getItem("accel_y")));
+				resultArrayList.addItem(o);
+			}
+			private function ioErrorHandler(e:IOErrorEvent):void
+			{
+				trace(e);
+			}
+			
+			// google maps for flash
+			private function onMapReady(event:MapEvent):void
+			{
+				map.setCenter(new LatLng(39.801672,141.1374851), 10, MapType.NORMAL_MAP_TYPE);
+				map.addControl(new ZoomControl());
+				map.addControl(new PositionControl());
+				map.addControl(new MapTypeControl());
+			}
+			private function clickDataGridHandler(event:Event):void
+			{
+				var o:Object = dg.selectedItem;
+				var latlng:LatLng = LatLng.fromUrlValue(o.geo);
+				var marker:Marker = new Marker(latlng);
+				map.clearOverlays();
+				map.setCenter(latlng);
+				map.addOverlay(marker);
+			}
+		]]>
+	</fx:Script>
+	
+	<mx:DataGrid x="0" y="300" height="200" width="800" id="dg" dataProvider="{resultArrayList}" click="clickDataGridHandler(event);">
+		<mx:columns>
+			<mx:DataGridColumn headerText="時刻" dataField="time" />
+			<mx:DataGridColumn headerText="ノード" dataField="nodeid" />
+			<mx:DataGridColumn headerText="座標" dataField="geo" />
+			<mx:DataGridColumn headerText="温度" dataField="temperature" />
+			<mx:DataGridColumn headerText="加速度" dataField="accel" />
+			<mx:DataGridColumn headerText="バッテリ" dataField="battery" />
+		</mx:columns>
+	</mx:DataGrid>
+	<maps:Map3D id="map" x="0" y="0" width="800" height="300" sensor="true" mapevent_mapready="onMapReady(event);"
+				url="" 
+				key=""/>
+</s:WindowedApplication>

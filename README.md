@@ -1,5 +1,3 @@
 WSNLib
 ======
-
-Crossbow MTS420
-Crossbow XMDA100
+Crossbow MTS420またはCrossbow XMDA100から取得したセンサデータを扱うためのActionScriptライブラリです。
